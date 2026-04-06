@@ -1,26 +1,7 @@
-# .github/workflows/terraform-test.yml
-# Day 18 of the 30-Day Terraform Challenge
-#
-# CI/CD pipeline that runs Terraform tests automatically
-# on every pull request and every merge to main.
-#
+# CI/CD pipeline that runs Terraform tests automatically on every pull request and every merge to main.
 # TWO JOBS:
 # 1. unit-tests — runs on every PR (fast, free, no AWS)
-#    Uses terraform test with .tftest.hcl files
-#    Runs in ~30 seconds
-#
 # 2. integration-tests — runs only on merge to main
-#    Uses Terratest (Go) against real AWS
-#    Runs in ~15 minutes
-#    Requires AWS credentials in GitHub Secrets
-#
-# REQUIRED GITHUB SECRETS:
-# AWS_ACCESS_KEY_ID     — IAM user access key
-# AWS_SECRET_ACCESS_KEY — IAM user secret key
-#
-# Set these at:
-# Repository → Settings → Secrets and variables → Actions
-#
 # NEVER hardcode credentials in this file.
 
 name: Terraform Tests
@@ -34,12 +15,8 @@ on:
       - main
 
 jobs:
-  # -------------------------------------------------------
   # Job 1 — Unit Tests
-  # Runs on every PR and every push to main.
-  # Uses terraform test (native .tftest.hcl framework).
-  # No AWS credentials needed — command = plan only.
-  # -------------------------------------------------------
+ 
   unit-tests:
     name: Unit Tests (terraform test)
     runs-on: ubuntu-latest
@@ -55,25 +32,20 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
-        working-directory: modules/services/webserver-cluster
+        working-directory: day_18/modules/services/webserver-cluster
 
       - name: Run Unit Tests
         run: terraform test
-        working-directory: modules/services/webserver-cluster
+        working-directory: day_18/modules/services/webserver-cluster
 
-  # -------------------------------------------------------
   # Job 2 — Integration Tests
   # Runs only on push to main (not on PRs).
-  # Deploys real AWS infrastructure — costs money.
-  # Uses Terratest (Go).
-  # Only runs after unit-tests passes (needs: unit-tests).
-  # -------------------------------------------------------
+  
   integration-tests:
     name: Integration Tests (Terratest)
     runs-on: ubuntu-latest
 
     # Only run on merges to main, not on pull requests.
-    # PRs are covered by the cheaper unit tests.
     if: github.event_name == 'push'
 
     # Do not run if unit tests failed.
@@ -103,8 +75,8 @@ jobs:
 
       - name: Download Go dependencies
         run: go mod download
-        working-directory: test
+        working-directory: day_18/test
 
       - name: Run Integration Tests
         run: go test -v -timeout 30m -run TestWebserverClusterIntegration ./...
-        working-directory: test
+        working-directory: day_18/test

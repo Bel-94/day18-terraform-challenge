@@ -1,25 +1,4 @@
-// test/webserver_cluster_test.go
-// Day 18 of the 30-Day Terraform Challenge
-//
 // Integration test using Terratest.
-// Deploys REAL AWS infrastructure, runs assertions,
-// then destroys everything.
-//
-// COST WARNING: This test creates real AWS resources.
-// Estimated cost: ~$0.05–0.10 per test run.
-// The defer terraform.Destroy call ensures cleanup
-// even if the test fails mid-run.
-//
-// TIME WARNING: Takes 5–15 minutes to complete.
-//
-// RUN:
-//   cd test
-//   go test -v -timeout 30m -run TestWebserverClusterIntegration ./...
-//
-// REQUIRES:
-//   AWS credentials in environment variables
-//   Go 1.21+
-//   go mod init + go get for dependencies
 
 package test
 
@@ -35,23 +14,13 @@ import (
 )
 
 func TestWebserverClusterIntegration(t *testing.T) {
-	// t.Parallel() allows multiple test functions to run
-	// simultaneously rather than sequentially. When you
-	// have multiple test files, this cuts total test time.
+	// t.Parallel() allows multiple test functions to run simultaneously rather than sequentially.
 	t.Parallel()
 
 	// Generate a unique ID for this test run.
-	// This prevents name conflicts if two tests run at
-	// the same time, and makes it easy to identify which
-	// AWS resources belong to which test run.
+	// This prevents name conflicts if two tests run at  the same time, and makes it easy to identify which AWS resources belong to which test run.
 	uniqueID := random.UniqueId()
 	clusterName := fmt.Sprintf("test-cluster-%s", uniqueID)
-
-	// Configure Terraform options — same as what a human
-	// engineer would pass when running terraform apply
-	// manually. WithDefaultRetryableErrors wraps the
-	// options to automatically retry on transient AWS
-	// API errors like throttling.
 	terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
 		TerraformDir: "../modules/services/webserver-cluster",
 		Vars: map[string]interface{}{
@@ -65,11 +34,9 @@ func TestWebserverClusterIntegration(t *testing.T) {
 		},
 	})
 
-	// defer runs when the test function exits — whether
-	// the test passes, fails, or panics. This guarantees
-	// terraform destroy runs no matter what happens.
-	// Without this, a mid-test failure would leave real
-	// AWS resources running and charging money.
+	// defer runs when the test function exits whether  the test passes, fails, or panics. 
+	// This guarantees terraform destroy runs no matter what happens.
+	// Without this, a mid-test failure would leave real AWS resources running and charging money.
 	defer terraform.Destroy(t, terraformOptions)
 
 	// Run terraform init followed by terraform apply.
@@ -87,13 +54,6 @@ func TestWebserverClusterIntegration(t *testing.T) {
 	// missing or the ALB was not created.
 	assert.NotEmpty(t, albDnsName, "ALB DNS name output should not be empty after apply")
 
-	// HttpGetWithRetryWithCustomValidation sends HTTP GET
-	// requests to the ALB URL and retries up to 30 times
-	// with a 10-second pause between attempts.
-	// This handles the delay between when terraform apply
-	// finishes and when the ALB instances are healthy and
-	// serving traffic — typically 2–5 minutes.
-	//
 	// The validation function checks two things:
 	// 1. HTTP status code is 200
 	// 2. The response body is non-empty
@@ -109,11 +69,7 @@ func TestWebserverClusterIntegration(t *testing.T) {
 	)
 }
 
-// TestWebserverClusterOutputs verifies that all expected
-// outputs are defined and non-empty after apply.
-// This is a lightweight companion to the main integration
-// test — it does not make HTTP requests, just checks
-// that Terraform outputs are correctly configured.
+// TestWebserverClusterOutputs verifies that all expected outputs are defined and non-empty after apply.
 func TestWebserverClusterOutputs(t *testing.T) {
 	t.Parallel()
 
