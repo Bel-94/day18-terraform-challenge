@@ -1,3 +1,21 @@
+# mock_provider intercepts all AWS API calls during plan.
+# This means data.aws_vpc.default and data.aws_subnets.default
+# are never sent to AWS — no credentials needed for unit tests.
+mock_provider "aws" {
+  mock_data "aws_vpc" {
+    defaults = {
+      id         = "vpc-00000000000000000"
+      cidr_block = "10.0.0.0/16"
+    }
+  }
+
+  mock_data "aws_subnets" {
+    defaults = {
+      ids = ["subnet-00000000000000000", "subnet-11111111111111111"]
+    }
+  }
+}
+
 variables {
   cluster_name  = "test-cluster"
   instance_type = "t2.micro"
