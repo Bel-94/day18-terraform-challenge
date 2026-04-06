@@ -814,7 +814,7 @@ With the lock file gone, `terraform init` on the runner generates a fresh one by
 
 **Screenshot — CI/CD pipeline passing after all fixes:**
 
-![CI/CD pipeline passing](images/CICD-tests successful.png)
+![CI/CD pipeline passing](images/CICD-tests%20successful.png)
 
 
 ---
