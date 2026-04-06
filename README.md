@@ -495,11 +495,13 @@ jobs:
   unit-tests:
     name: Unit Tests (terraform test)
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "1.6.0"
+          terraform_version: "1.7.0"
       - name: Terraform Init
         run: terraform init
         working-directory: modules/services/webserver-cluster
@@ -523,7 +525,7 @@ jobs:
           go-version: "1.21"
       - uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "1.6.0"
+          terraform_version: "1.7.0"
           terraform_wrapper: false
       - name: Download Go dependencies
         run: go mod download
@@ -720,3 +722,107 @@ Error: The working directory "modules/services/webserver-cluster" does not exist
 I applied the same fix to the `go mod download` and `go test` steps — changing `working-directory: day_18/test` to `working-directory: test`.
 
 **The rule I learned:** The `working-directory` path must match the file paths as git tracks them. Run `git ls-files` to see exactly what the runner will see after checkout — those are the paths to use.
+
+---
+
+### Error 3 — `Invalid reference in variable validation` and `mock_provider` not supported
+
+**When it happened:** After the working-directory fix was merged, the unit tests job failed again this time Terraform itself was erroring during `terraform init`.
+
+**The errors:**
+
+```
+╷
+│ Error: Invalid reference in variable validation
+│
+│   on variables.tf line 40, in variable "max_size":
+│   40:     condition     = var.max_size >= var.min_size
+│
+│ The condition for variable "max_size" can only refer to the variable itself,
+│ using var.max_size.
+╵
+
+╷
+│ Error: Unsupported block type
+│
+│   on webserver_cluster_test.tftest.hcl line 4:
+│    4: mock_provider "aws" {
+│
+│ Blocks of type "mock_provider" are not expected here.
+╵
+```
+
+**Why it happened:** Two separate issues hit at the same time:
+
+1. Terraform does not allow a variable's validation condition to reference any other variable only itself. My `max_size` validation was checking `var.max_size >= var.min_size` which crosses that boundary.
+2. `mock_provider` was introduced in Terraform 1.7.0. The workflow was installing 1.6.0, so the block was completely unknown to that version.
+
+**How I fixed it:**
+
+For the cross-variable reference, I simplified the condition to only reference itself:
+
+```hcl
+# Before — references another variable (not allowed)
+validation {
+  condition     = var.max_size >= var.min_size
+  error_message = "max_size must be greater than or equal to min_size."
+}
+
+# After — references only itself (correct)
+validation {
+  condition     = var.max_size >= 1
+  error_message = "max_size must be at least 1."
+}
+```
+
+For the `mock_provider` version issue, I bumped Terraform from `1.6.0` to `1.7.0` in both jobs in the workflow file.
+
+**Screenshot — CI/CD pipeline failing:**
+
+![CI/CD pipeline failing](images/CICD-tests-fails.png)
+
+---
+
+### Error 4 — Stale `.terraform.lock.hcl` blocking integration tests
+
+**When it happened:** After the unit tests started passing, the integration tests job failed immediately with a provider version mismatch.
+
+**The error:**
+
+```
+│ Error: Required plugins are not installed
+│
+│ The installed provider plugins are not consistent with the packages
+│ selected in the dependency lock file:
+│   - registry.terraform.io/hashicorp/aws: there is no package for
+│     registry.terraform.io/hashicorp/aws 5.100.0 cached in .terraform/providers
+```
+
+**Why it happened:** I had committed the `.terraform.lock.hcl` file which was generated locally with AWS provider version `5.100.0`. Terratest calls `terraform init -upgrade=false` which refuses to download any version other than what the lock file specifies. The CI runner had no cached providers at all, so it could not satisfy the lock file and failed immediately.
+
+**How I fixed it:** I removed the committed lock file from git entirely:
+
+```powershell
+git rm modules/services/webserver-cluster/.terraform.lock.hcl
+git commit -m "fix: remove stale lock file so runner generates a fresh one"
+git push origin main
+```
+
+With the lock file gone, `terraform init` on the runner generates a fresh one by downloading the latest compatible provider version  no stale version conflict.
+
+**The rule I learned:** Never commit `.terraform.lock.hcl` for modules that are tested in CI. The lock file is useful in root modules to pin provider versions for deployments, but in a module under test it causes version conflicts between local and CI environments.
+
+**Screenshot — CI/CD pipeline passing after all fixes:**
+
+![CI/CD pipeline passing](images/CICD-tests successful.png)
+
+
+---
+
+> If this project helped you understand Terraform testing, let's connect! I document every step of my cloud journey, follow along and let's grow together.
+>
+> [![LinkedIn](https://img.shields.io/badge/LinkedIn-Belinda%20Ntinyari-0077B5?style=flat&logo=linkedin)](https://www.linkedin.com/in/belinda-ntinyari/)
+> [![Medium](https://img.shields.io/badge/Medium-@ntinyaribelinda-12100E?style=flat&logo=medium)](https://medium.com/@ntinyaribelinda)
+> [![X](https://img.shields.io/badge/X-@NtinyariBelinda-000000?style=flat&logo=x)](https://x.com/NtinyariBelinda)
+
+---
