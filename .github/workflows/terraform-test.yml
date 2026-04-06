@@ -16,10 +16,12 @@ on:
 
 jobs:
   # Job 1 — Unit Tests
- 
+
   unit-tests:
     name: Unit Tests (terraform test)
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout code
