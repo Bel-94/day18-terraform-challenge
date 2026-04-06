@@ -37,8 +37,8 @@ variable "max_size" {
   default     = 4
 
   validation {
-    condition     = var.max_size >= var.min_size
-    error_message = "max_size must be greater than or equal to min_size."
+    condition     = var.max_size >= 1
+    error_message = "max_size must be at least 1."
   }
 }
 
