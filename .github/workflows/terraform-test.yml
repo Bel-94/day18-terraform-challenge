@@ -1,0 +1,110 @@
+# .github/workflows/terraform-test.yml
+# Day 18 of the 30-Day Terraform Challenge
+#
+# CI/CD pipeline that runs Terraform tests automatically
+# on every pull request and every merge to main.
+#
+# TWO JOBS:
+# 1. unit-tests — runs on every PR (fast, free, no AWS)
+#    Uses terraform test with .tftest.hcl files
+#    Runs in ~30 seconds
+#
+# 2. integration-tests — runs only on merge to main
+#    Uses Terratest (Go) against real AWS
+#    Runs in ~15 minutes
+#    Requires AWS credentials in GitHub Secrets
+#
+# REQUIRED GITHUB SECRETS:
+# AWS_ACCESS_KEY_ID     — IAM user access key
+# AWS_SECRET_ACCESS_KEY — IAM user secret key
+#
+# Set these at:
+# Repository → Settings → Secrets and variables → Actions
+#
+# NEVER hardcode credentials in this file.
+
+name: Terraform Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  # -------------------------------------------------------
+  # Job 1 — Unit Tests
+  # Runs on every PR and every push to main.
+  # Uses terraform test (native .tftest.hcl framework).
+  # No AWS credentials needed — command = plan only.
+  # -------------------------------------------------------
+  unit-tests:
+    name: Unit Tests (terraform test)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.6.0"
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: modules/services/webserver-cluster
+
+      - name: Run Unit Tests
+        run: terraform test
+        working-directory: modules/services/webserver-cluster
+
+  # -------------------------------------------------------
+  # Job 2 — Integration Tests
+  # Runs only on push to main (not on PRs).
+  # Deploys real AWS infrastructure — costs money.
+  # Uses Terratest (Go).
+  # Only runs after unit-tests passes (needs: unit-tests).
+  # -------------------------------------------------------
+  integration-tests:
+    name: Integration Tests (Terratest)
+    runs-on: ubuntu-latest
+
+    # Only run on merges to main, not on pull requests.
+    # PRs are covered by the cheaper unit tests.
+    if: github.event_name == 'push'
+
+    # Do not run if unit tests failed.
+    needs: unit-tests
+
+    env:
+      # These come from GitHub Secrets — never hardcoded.
+      AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION:    us-east-1
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.21"
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.6.0"
+          # Required for Terratest to call terraform binary
+          terraform_wrapper: false
+
+      - name: Download Go dependencies
+        run: go mod download
+        working-directory: test
+
+      - name: Run Integration Tests
+        run: go test -v -timeout 30m -run TestWebserverClusterIntegration ./...
+        working-directory: test

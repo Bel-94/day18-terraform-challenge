@@ -1,0 +1,55 @@
+# ── Terraform state ───────────────────────────────────────────────────────────
+# State files contain every resource attribute in plaintext, including secrets,
+# passwords, and private keys written by providers.
+*.tfstate
+*.tfstate.backup
+*.tfstate.*.backup
+
+# ── Terraform working directory ───────────────────────────────────────────────
+.terraform/
+
+# ── Terraform plans ───────────────────────────────────────────────────────────
+# Plan files can contain sensitive values from variables and provider responses.
+*.tfplan
+*.plan
+
+# ── Variable files with secrets ───────────────────────────────────────────────
+# These files commonly hold AWS keys, DB passwords, and API tokens.
+*.tfvars
+*.tfvars.json
+!example.tfvars
+!example.tfvars.json
+
+# ── Terraform Cloud / Enterprise token ───────────────────────────────────────
+.terraformrc
+terraform.rc
+
+# ── AWS credentials ───────────────────────────────────────────────────────────
+.aws/credentials
+.aws/config
+credentials
+*_credentials.json
+
+# ── Environment variable files ────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── SSH & TLS keys ────────────────────────────────────────────────────────────
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+
+# ── Go build artifacts ────────────────────────────────────────────────────────
+# Compiled test binaries produced by go test -c
+*.test
+*.out
+
+# ── OS artifacts ─────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
