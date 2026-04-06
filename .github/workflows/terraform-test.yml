@@ -37,11 +37,11 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
-        working-directory: day_18/modules/services/webserver-cluster
+        working-directory: modules/services/webserver-cluster
 
       - name: Run Unit Tests
         run: terraform test
-        working-directory: day_18/modules/services/webserver-cluster
+        working-directory: modules/services/webserver-cluster
 
   # Job 2 — Integration Tests
   # Runs only on push to main (not on PRs).
@@ -80,8 +80,8 @@ jobs:
 
       - name: Download Go dependencies
         run: go mod download
-        working-directory: day_18/test
+        working-directory: test
 
       - name: Run Integration Tests
         run: go test -v -timeout 30m -run TestWebserverClusterIntegration ./...
-        working-directory: day_18/test
+        working-directory: test

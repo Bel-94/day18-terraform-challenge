@@ -502,10 +502,10 @@ jobs:
           terraform_version: "1.6.0"
       - name: Terraform Init
         run: terraform init
-        working-directory: day_18/modules/services/webserver-cluster
+        working-directory: modules/services/webserver-cluster
       - name: Run Unit Tests
         run: terraform test
-        working-directory: day_18/modules/services/webserver-cluster
+        working-directory: modules/services/webserver-cluster
 
   integration-tests:
     name: Integration Tests (Terratest)
@@ -527,10 +527,10 @@ jobs:
           terraform_wrapper: false
       - name: Download Go dependencies
         run: go mod download
-        working-directory: day_18/test
+        working-directory: test
       - name: Run Integration Tests
         run: go test -v -timeout 30m -run TestWebserverClusterIntegration ./...
-        working-directory: day_18/test
+        working-directory: test
 ```
 
 > **`terraform_wrapper: false`** is required in the integration test job. By default, `hashicorp/setup-terraform@v3` wraps the terraform binary to capture output for GitHub Actions annotations. This wrapper breaks Terratest because Terratest calls terraform as a subprocess and parses its stdout directly. Setting `terraform_wrapper: false` gives Terratest the raw binary it expects.
@@ -693,21 +693,12 @@ The unit tests step was failing because `terraform init` could not find the work
 Error: The working directory "modules/services/webserver-cluster" does not exist.
 ```
 
-**Why it happened:** I set the `working-directory` paths relative to where the workflow file lives inside `day_18/`. But GitHub Actions always checks out the entire repository at the **root** and runs every step from there — it does not change into the directory where the workflow file is stored. So the runner was looking for `modules/services/webserver-cluster` at the repository root, which does not exist there. The integration tests job was skipped because it has `needs: unit-tests` — when unit tests fail, GitHub Actions automatically skips every downstream job that depends on it.
+**Why it happened:** I initially set the `working-directory` paths with a `day_18/` prefix, assuming GitHub Actions would need it. But this repository's root IS `day_18/` — the runner checks out directly into it. So the correct paths are just `modules/services/webserver-cluster` and `test`, without any prefix. The integration tests job was skipped because it has `needs: unit-tests` — when unit tests fail, GitHub Actions automatically skips every downstream job that depends on it.
 
-**How I fixed it:** I added the `day_18/` prefix to every `working-directory` value in the workflow file so the paths are correct relative to the repository root.
+**How I fixed it:** I removed the `day_18/` prefix from every `working-directory` value so the paths match what the runner actually sees after checkout.
 
 ```yaml
-# Before — path relative to the workflow file location (wrong)
-- name: Terraform Init
-  run: terraform init
-  working-directory: modules/services/webserver-cluster
-
-- name: Run Unit Tests
-  run: terraform test
-  working-directory: modules/services/webserver-cluster
-
-# After — path relative to the repository root (correct)
+# Before — incorrect prefix caused "directory does not exist"
 - name: Terraform Init
   run: terraform init
   working-directory: day_18/modules/services/webserver-cluster
@@ -715,8 +706,17 @@ Error: The working directory "modules/services/webserver-cluster" does not exist
 - name: Run Unit Tests
   run: terraform test
   working-directory: day_18/modules/services/webserver-cluster
+
+# After — correct paths relative to the repository root
+- name: Terraform Init
+  run: terraform init
+  working-directory: modules/services/webserver-cluster
+
+- name: Run Unit Tests
+  run: terraform test
+  working-directory: modules/services/webserver-cluster
 ```
 
-I applied the same fix to the `go mod download` and `go test` steps in the integration tests job changing `working-directory: test` to `working-directory: day_18/test`.
+I applied the same fix to the `go mod download` and `go test` steps — changing `working-directory: day_18/test` to `working-directory: test`.
 
-**The rule I learned:** In a monorepo where the workflow file lives inside a subdirectory, every `working-directory` must be written relative to the repository root, not relative to the workflow file itself.
+**The rule I learned:** The `working-directory` path must match the file paths as git tracks them. Run `git ls-files` to see exactly what the runner will see after checkout — those are the paths to use.
